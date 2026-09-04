@@ -1,0 +1,6 @@
+requests
+beautifulsoup4
+supabase
+google-genai
+Pillow
+python-dotenv

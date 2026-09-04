@@ -1,0 +1,39 @@
+name: IT Job Poster
+
+on:
+  schedule:
+    - cron: "0 1 * * *" # 08:00 น. เวลาไทย (UTC+7)
+  workflow_dispatch: {} # กดรันเองได้จาก Actions tab เพื่อทดสอบ
+
+jobs:
+  post-jobs:
+    runs-on: ubuntu-latest
+    # เผื่อเวลารอ confirm ใน Discord ต่อโพส (สูงสุด 5 นาที/โพส x MAX_POSTS_PER_RUN โพส) + scrape + อื่นๆ
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Thai fonts (สำหรับสร้างภาพด้วย Pillow)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-thai-tlwg
+
+      - name: Run job poster
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_TOKEN: ${{ secrets.FB_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+        run: python main.py
