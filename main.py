@@ -24,7 +24,7 @@ from publisher import post_to_facebook
 from scraper import REQUEST_DELAY_SECONDS, get_job_detail, get_job_links
 from writer import write_post
 
-MAX_POSTS_PER_RUN = 5  # กันโพสรัวเกินไปในรอบเดียว เผื่อมีประกาศ IT ใหม่เข้ามาพร้อมกันหลายอัน
+MAX_POSTS_PER_RUN = 2  # กันโพสรัวเกินไปในรอบเดียว เผื่อมีประกาศ IT ใหม่เข้ามาพร้อมกันหลายอัน
 
 
 def main() -> None:

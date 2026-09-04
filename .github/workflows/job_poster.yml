@@ -8,7 +8,7 @@ on:
 jobs:
   post-jobs:
     runs-on: ubuntu-latest
-    # เผื่อเวลารอ confirm ใน Discord ต่อโพส (สูงสุด 5 นาที/โพส x MAX_POSTS_PER_RUN โพส) + scrape + อื่นๆ
+    # เผื่อเวลารอ confirm ใน Discord ต่อโพส (สูงสุด 15 นาที/โพส x MAX_POSTS_PER_RUN 2 โพส) + scrape + อื่นๆ
     timeout-minutes: 60
     steps:
       - name: Checkout code

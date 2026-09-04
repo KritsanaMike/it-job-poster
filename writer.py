@@ -12,6 +12,8 @@ MODEL_NAME = "gemini-3.6-flash"
 
 _client = None
 
+REQUIRED_HASHTAG = "#งานราชการสายไอที"  # แฮชแท็กประจำเพจ ต้องอยู่ในทุกโพสเสมอ
+
 PROMPT_TEMPLATE = """\
 คุณคือแอดมินเพจ Facebook ที่รวบรวมประกาศรับสมัครงานสายไอที/คอมพิวเตอร์ในหน่วยงานราชการ
 ช่วยเขียนโพสประกาศงานนี้ให้น่าสนใจ กระชับ อ่านง่าย เหมาะกับโพสลง Facebook
@@ -25,7 +27,8 @@ PROMPT_TEMPLATE = """\
 กติกาการเขียน:
 - ใช้ภาษาไทย น้ำเสียงเป็นกันเอง กระตุ้นให้คนสนใจสมัคร
 - สรุปตำแหน่ง คุณสมบัติ และวันปิดรับสมัครแบบย่อ ไม่ต้องคัดลอกทั้งหมด
-- ปิดท้ายด้วย hashtag ภาษาไทย/อังกฤษ 4-6 อัน ที่เกี่ยวกับงานราชการสายไอที (เช่น #งานราชการ #สายไอที)
+- ปิดท้ายด้วย hashtag ภาษาไทย/อังกฤษ 4-6 อัน ที่เกี่ยวกับงานราชการสายไอที ต้องมี "{required_hashtag}"
+  รวมอยู่ด้วยเสมอ (เป็นแฮชแท็กประจำเพจ) นอกนั้นเลือกเพิ่มเองได้ (เช่น #งานราชการ #สายไอที)
 - ความยาวรวมไม่เกิน 600 ตัวอักษร
 - ตอบกลับเฉพาะข้อความโพส ห้ามใส่คำอธิบายอื่น
 """
@@ -67,7 +70,14 @@ def write_post(job: dict) -> str:
         description=job.get("description", "")[:1500],
         close_date=job.get("close_date") or "ไม่ระบุ",
         link_instruction=link_instruction,
+        required_hashtag=REQUIRED_HASHTAG,
     )
 
     response = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-    return response.text.strip()
+    text = response.text.strip()
+
+    # การันตีว่าแฮชแท็กประจำเพจต้องอยู่ในโพสเสมอ เผื่อ AI ลืมใส่ (ไม่พึ่งพา prompt อย่างเดียว)
+    if REQUIRED_HASHTAG not in text:
+        text = f"{text}\n{REQUIRED_HASHTAG}"
+
+    return text

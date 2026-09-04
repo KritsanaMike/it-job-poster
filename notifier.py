@@ -21,7 +21,7 @@ API_BASE = "https://discord.com/api/v10"
 CONFIRM_EMOJI = "✅"
 CANCEL_EMOJI = "❌"
 POLL_INTERVAL_SECONDS = 5
-DEFAULT_TIMEOUT_SECONDS = 300  # 5 นาที — ถ้าไม่มีใคร react ทัน จะยกเลิกโพสนั้นอัตโนมัติ (ปลอดภัยไว้ก่อน)
+DEFAULT_TIMEOUT_SECONDS = 900  # 15 นาที — ถ้าไม่มีใคร react ทัน จะยกเลิกโพสนั้นอัตโนมัติ (ปลอดภัยไว้ก่อน)
 
 
 def _headers() -> dict:
