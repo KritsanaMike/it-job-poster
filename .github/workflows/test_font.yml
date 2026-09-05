@@ -1,0 +1,28 @@
+name: Test Font Rendering
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  test-font:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install Pillow
+
+      - name: Generate test image
+        run: python test_font.py
+
+      - name: Upload test image
+        uses: actions/upload-artifact@v4
+        with:
+          name: font-test-output
+          path: font_test_output.png
