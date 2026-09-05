@@ -22,11 +22,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Install Thai fonts (สำหรับสร้างภาพด้วย Pillow)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fonts-thai-tlwg
-
       - name: Run job poster
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

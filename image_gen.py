@@ -27,16 +27,23 @@ TEXT_DARK = (30, 41, 59)
 TEXT_MUTED = (100, 116, 139)
 TEXT_ON_PRIMARY = (255, 255, 255)
 
+FONTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+
+# หมายเหตุ: เดิมเคยพึ่งพา apt package "fonts-thai-tlwg" บน GitHub Actions runner แต่พบว่า
+# แพ็กเกจนั้น (TLWG font collection) ไม่มีไฟล์ชื่อ Sarabun.ttf อยู่จริงๆ เลยแม้แต่ไฟล์เดียว
+# (Sarabun เป็นฟอนต์ของ Google Fonts คนละชุดกับ TLWG) ทำให้ path เดาทั้งหมดหาไม่เจอ แล้ว
+# Pillow fallback ไปใช้ ImageFont.load_default() ซึ่งไม่รองรับภาษาไทยเลย เป็นสาเหตุที่ตัวอักษร
+# ในภาพออกมาเพี้ยนเป็นภาษาต่างดาว จึงเปลี่ยนมาแนบไฟล์ฟอนต์ Sarabun จริงไว้ในโปรเจกต์เอง
+# (fonts/Sarabun-Regular.ttf, fonts/Sarabun-Bold.ttf) รับประกันว่ามีอยู่จริงเสมอ ทั้งตอนรัน
+# บนเครื่อง Windows และบน GitHub Actions โดยไม่ต้องพึ่ง apt-get ให้ตรงกับชื่อไฟล์ที่เดาไว้
 THAI_FONT_CANDIDATES = {
     "regular": [
-        "/usr/share/fonts/truetype/tlwg/Sarabun.ttf",
-        "/usr/share/fonts/truetype/thai-tlwg/Sarabun.ttf",
+        os.path.join(FONTS_DIR, "Sarabun-Regular.ttf"),
         "C:/Windows/Fonts/tahoma.ttf",
         "C:/Windows/Fonts/leelawad.ttf",
     ],
     "bold": [
-        "/usr/share/fonts/truetype/tlwg/Sarabun-Bold.ttf",
-        "/usr/share/fonts/truetype/thai-tlwg/Sarabun-Bold.ttf",
+        os.path.join(FONTS_DIR, "Sarabun-Bold.ttf"),
         "C:/Windows/Fonts/tahomabd.ttf",
         "C:/Windows/Fonts/leelawad.ttf",
     ],
