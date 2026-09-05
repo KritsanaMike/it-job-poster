@@ -28,6 +28,9 @@ TEXT_MUTED = (100, 116, 139)
 TEXT_ON_PRIMARY = (255, 255, 255)
 
 FONTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+print(f"  [font] FONTS_DIR resolved to: {FONTS_DIR} (exists={os.path.isdir(FONTS_DIR)})")
+if os.path.isdir(FONTS_DIR):
+    print(f"  [font] contents: {os.listdir(FONTS_DIR)}")
 
 # หมายเหตุ: เดิมเคยพึ่งพา apt package "fonts-thai-tlwg" บน GitHub Actions runner แต่พบว่า
 # แพ็กเกจนั้น (TLWG font collection) ไม่มีไฟล์ชื่อ Sarabun.ttf อยู่จริงๆ เลยแม้แต่ไฟล์เดียว
@@ -57,10 +60,14 @@ def _font(weight: str, size: int) -> ImageFont.FreeTypeFont:
     key = (weight, size)
     if key not in _font_cache:
         for path in THAI_FONT_CANDIDATES[weight]:
-            if os.path.exists(path):
+            exists = os.path.exists(path)
+            print(f"  [font] checking {path} -> {'found' if exists else 'missing'}")
+            if exists:
                 _font_cache[key] = ImageFont.truetype(path, size)
+                print(f"  [font] loaded {path} for weight={weight} size={size}")
                 break
         else:
+            print(f"  [font] NO candidate found for weight={weight}, falling back to ImageFont.load_default() (no Thai support!)")
             _font_cache[key] = ImageFont.load_default()
     return _font_cache[key]
 
