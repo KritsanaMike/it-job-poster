@@ -17,7 +17,7 @@ load_dotenv()
 # import โมดูลที่อ่าน os.environ ตอน import (database/writer/image_gen/publisher)
 # ต้องมาหลัง load_dotenv() เสมอ ไม่งั้นค่าจาก .env จะยังไม่ถูกอ่าน
 from database import get_client, is_already_posted, mark_as_posted
-from filter import is_it_job_detail, is_open
+from filter import is_it_job_detail, is_open, split_it_positions
 from image_gen import generate_job_image
 from notifier import request_confirmation
 from publisher import post_to_facebook
@@ -68,6 +68,21 @@ def main() -> None:
 
         if not is_it_job_detail(job):
             continue
+
+        # ประกาศเดียวบางทีเปิดรับหลายตำแหน่งปนกัน (เช่น "นักวิชาการคอมพิวเตอร์" +
+        # "นักจัดการงานทั่วไป") — ตัดตำแหน่งที่ไม่ใช่สาย IT ออก แล้วให้ writer/image_gen
+        # ใช้เฉพาะตำแหน่งสายคอมพิวเตอร์ (พร้อมจำนวนอัตราของตำแหน่งนั้นๆ) เท่านั้น
+        it_positions, other_positions = split_it_positions(job)
+        if other_positions:
+            print(
+                f"  ✂ ตัดตำแหน่งที่ไม่ใช่สาย IT ออก {len(other_positions)} ตำแหน่ง "
+                f"(เหลือสาย IT {len(it_positions)} ตำแหน่ง)"
+            )
+            job = {
+                **job,
+                "positions": [p["name"] for p in it_positions],
+                "it_positions": it_positions,
+            }
 
         print(f"พบประกาศสาย IT: {job['title']}")
         try:

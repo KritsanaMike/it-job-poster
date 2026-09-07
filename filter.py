@@ -49,6 +49,21 @@ def is_it_job_detail(job: dict) -> bool:
     return is_it_job(job.get("title", ""))
 
 
+def split_it_positions(job: dict) -> tuple[list[dict], list[dict]]:
+    """
+    แยกตำแหน่งในประกาศ (job["position_details"] จาก scraper.get_job_detail) ออกเป็น
+    (ตำแหน่งสาย IT, ตำแหน่งอื่นที่ไม่ใช่สาย IT) ใช้ตอนประกาศเดียวเปิดรับหลายตำแหน่งปนกัน
+    เพื่อตัดตำแหน่งที่ไม่เกี่ยวข้องออกจากโพส แล้วปรับจำนวนอัตราให้ตรงเฉพาะตำแหน่งสายคอมพิวเตอร์
+
+    ถ้า parse ตำแหน่งไม่ได้เลย (position_details ว่าง เช่น เว็บเปลี่ยนโครงสร้าง) คืนค่า ([], [])
+    ทั้งคู่ ให้ main.py รู้ว่าไม่มีข้อมูลแยกตำแหน่งให้ใช้ ต้องถือว่าทั้งประกาศเป็นก้อนเดียว ไม่ต้องกรอง
+    """
+    details = job.get("position_details") or []
+    it_positions = [p for p in details if is_it_job(p["name"])]
+    other_positions = [p for p in details if not is_it_job(p["name"])]
+    return it_positions, other_positions
+
+
 def is_open(close_date: date | None) -> bool:
     """
     เช็คว่ายังเปิดรับสมัครอยู่หรือไม่ โดยเทียบ close_date กับวันที่ปัจจุบัน ณ ตอนดึงข้อมูล

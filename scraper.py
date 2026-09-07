@@ -171,23 +171,36 @@ def _extract_source_url(description: str) -> str | None:
     return None
 
 
-def _extract_positions(description: str) -> list[str]:
-    """
-    ดึงชื่อตำแหน่งงานจริงจากเนื้อหาประกาศ (บรรทัดที่ขึ้นต้นด้วย "ตำแหน่ง" แต่ไม่ใช่หัวข้อ
-    "ตำแหน่งที่เปิดรับสมัคร"/"ตำแหน่งที่รับเปิดรับสมัคร")
+POSITION_LINE_PATTERN = re.compile(r"^\d*[.)]?\s*ตำแหน่ง(?!ที่)(.+)")
+QUOTA_PATTERN = re.compile(r"จำนวน\s*([\d,]+)\s*อัตรา")
 
-    จำเป็นต้องแยกออกมาเป็น field ต่างหาก เพราะ description เต็มมักมีคำว่า "คอมพิวเตอร์"
-    ปนอยู่ในคุณสมบัติทั่วไป (เช่น "มีความสามารถในการใช้คอมพิวเตอร์ได้") ซึ่งเกือบทุกตำแหน่ง
-    มีเหมือนกันหมด ถ้าเอา keyword ไปเทียบกับ description ทั้งก้อนจะกรองผิดพลาด (false positive)
-    ต้องเทียบกับชื่อตำแหน่งจริงเท่านั้นถึงจะแม่นยำ
+
+def _extract_position_details(description: str) -> list[dict]:
     """
-    positions = []
+    ดึงชื่อตำแหน่งพร้อมจำนวนอัตราที่รับของแต่ละตำแหน่ง จากบรรทัดที่ขึ้นต้นด้วย "ตำแหน่ง" (แต่ไม่ใช่
+    หัวข้อ "ตำแหน่งที่เปิดรับสมัคร"/"ตำแหน่งที่รับเปิดรับสมัคร") แล้วไล่หาบรรทัด "จำนวน N อัตรา" ที่
+    ตามหลังตำแหน่งนั้นก่อนจะเจอหัวข้อตำแหน่งถัดไป
+
+    ใช้แยกตำแหน่งสาย IT ออกจากตำแหน่งอื่นเมื่อประกาศเดียวเปิดรับหลายตำแหน่ง (ดู filter.split_it_positions
+    และ main.py) เพื่อตัดตำแหน่งที่ไม่เกี่ยวข้องออกจากโพส และปรับจำนวนอัตราให้ตรงเฉพาะตำแหน่งสายคอมพิวเตอร์
+    quota เป็น None ถ้าหาบรรทัด "จำนวน...อัตรา" ของตำแหน่งนั้นไม่เจอ (เช่น เปลี่ยนรูปแบบข้อความ)
+    """
+    details: list[dict] = []
+    current: dict | None = None
+
     for line in description.split("\n"):
         line = line.strip()
-        m = re.match(r"^\d*[.)]?\s*ตำแหน่ง(?!ที่)(.+)", line)
+        m = POSITION_LINE_PATTERN.match(line)
         if m:
-            positions.append(m.group(1).strip(" :-"))
-    return positions
+            current = {"name": m.group(1).strip(" :-"), "quota": None}
+            details.append(current)
+            continue
+        if current is not None and current["quota"] is None:
+            qm = QUOTA_PATTERN.search(line)
+            if qm:
+                current["quota"] = int(qm.group(1).replace(",", ""))
+
+    return details
 
 
 def get_job_detail(job_url: str) -> dict:
@@ -215,7 +228,8 @@ def get_job_detail(job_url: str) -> dict:
     # เนื้อหาประกาศแบบเต็ม (การ์ดแรกใน job-detail-content)
     content_el = soup.select_one(".job-main-content")
     description = content_el.get_text("\n", strip=True) if content_el else ""
-    positions = _extract_positions(description)
+    position_details = _extract_position_details(description)
+    positions = [detail["name"] for detail in position_details]
     source_url = _extract_source_url(description)
 
     # กล่องสรุปข้อมูลสำคัญ: วิธีสมัคร, วันที่เปิดรับสมัคร, ประเภท, เงื่อนไข ฯลฯ
@@ -237,6 +251,7 @@ def get_job_detail(job_url: str) -> dict:
         "meta": meta_items,
         "description": description,
         "positions": positions,
+        "position_details": position_details,
         "source_url": source_url,
         "info": info,
         "image_url": image_url,

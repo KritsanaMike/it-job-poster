@@ -22,16 +22,44 @@ PROMPT_TEMPLATE = """\
 ชื่อเรื่อง: {title}
 รายละเอียด: {description}
 วันที่ปิดรับสมัคร: {close_date}
-{link_instruction}
+{positions_instruction}{link_instruction}
 
 กติกาการเขียน:
 - ใช้ภาษาไทย น้ำเสียงเป็นกันเอง กระตุ้นให้คนสนใจสมัคร
 - สรุปตำแหน่ง คุณสมบัติ และวันปิดรับสมัครแบบย่อ ไม่ต้องคัดลอกทั้งหมด
+- ถ้ามีคำเตือน ⚠️ ด้านบนระบุตำแหน่งที่ต้องเขียนเฉพาะ ให้ทำตามเคร่งครัด ห้ามพูดถึงตำแหน่งอื่น
+  หรือจำนวนอัตรารวมทั้งประกาศที่ปรากฏในชื่อเรื่อง/รายละเอียดโดยเด็ดขาด
 - ปิดท้ายด้วย hashtag ภาษาไทย/อังกฤษ 4-6 อัน ที่เกี่ยวกับงานราชการสายไอที ต้องมี "{required_hashtag}"
   รวมอยู่ด้วยเสมอ (เป็นแฮชแท็กประจำเพจ) นอกนั้นเลือกเพิ่มเองได้ (เช่น #งานราชการ #สายไอที)
 - ความยาวรวมไม่เกิน 600 ตัวอักษร
 - ตอบกลับเฉพาะข้อความโพส ห้ามใส่คำอธิบายอื่น
 """
+
+
+def _build_positions_instruction(job: dict) -> str:
+    """
+    สร้างข้อความกำกับให้ Gemini เขียนถึงเฉพาะตำแหน่งสาย IT ที่ระบุ (พร้อมจำนวนอัตราที่ถูกต้อง)
+    ใช้เมื่อ main.py ตัดตำแหน่งอื่นที่ไม่ใช่สาย IT ออกแล้ว (job["it_positions"]) — จำเป็นต้องบอก
+    ตรงๆ แบบนี้เพราะ description ดิบยังมีตำแหน่งอื่นและจำนวนอัตรารวมทั้งประกาศปนอยู่ ถ้าปล่อยให้
+    Gemini อ่านจาก description เองอาจหลุดพูดถึงตำแหน่ง/จำนวนที่ไม่เกี่ยวข้องมาด้วย
+    คืนค่าว่างถ้าไม่มีการตัดตำแหน่ง (ประกาศนี้มีตำแหน่งเดียวหรือทุกตำแหน่งเป็นสาย IT อยู่แล้ว)
+    """
+    it_positions = job.get("it_positions")
+    if not it_positions:
+        return ""
+
+    lines = []
+    for position in it_positions:
+        quota = position.get("quota")
+        quota_text = f"{quota} อัตรา" if quota is not None else "ไม่ระบุจำนวนอัตรา"
+        lines.append(f"- {position['name']} ({quota_text})")
+
+    return (
+        "⚠️ ประกาศนี้เปิดรับหลายตำแหน่ง แต่มีบางตำแหน่งไม่เกี่ยวกับสายคอมพิวเตอร์/IT ปนอยู่ "
+        "ให้เขียนโพสนี้เฉพาะตำแหน่งต่อไปนี้เท่านั้น:\n"
+        + "\n".join(lines)
+        + "\n"
+    )
 
 
 def _get_client() -> genai.Client:
@@ -69,6 +97,7 @@ def write_post(job: dict) -> str:
         title=job.get("title", ""),
         description=job.get("description", "")[:1500],
         close_date=job.get("close_date") or "ไม่ระบุ",
+        positions_instruction=_build_positions_instruction(job),
         link_instruction=link_instruction,
         required_hashtag=REQUIRED_HASHTAG,
     )
