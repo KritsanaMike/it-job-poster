@@ -188,34 +188,39 @@ def _extract_source_url(description: str) -> str | None:
     return None
 
 
-POSITION_LINE_PATTERN = re.compile(r"^\d*[.)]?\s*ตำแหน่ง(?!ที่)(.+)")
 QUOTA_PATTERN = re.compile(r"จำนวน\s*([\d,]+)\s*อัตรา")
+POSITION_PREFIX_PATTERN = re.compile(r"^\d*[.)]?\s*(?:ตำแหน่ง(?!ที่)\s*)?(.+)$")
 
 
 def _extract_position_details(description: str) -> list[dict]:
     """
-    ดึงชื่อตำแหน่งพร้อมจำนวนอัตราที่รับของแต่ละตำแหน่ง จากบรรทัดที่ขึ้นต้นด้วย "ตำแหน่ง" (แต่ไม่ใช่
-    หัวข้อ "ตำแหน่งที่เปิดรับสมัคร"/"ตำแหน่งที่รับเปิดรับสมัคร") แล้วไล่หาบรรทัด "จำนวน N อัตรา" ที่
-    ตามหลังตำแหน่งนั้นก่อนจะเจอหัวข้อตำแหน่งถัดไป
+    ดึงชื่อตำแหน่งพร้อมจำนวนอัตราที่รับของแต่ละตำแหน่ง
 
-    ใช้แยกตำแหน่งสาย IT ออกจากตำแหน่งอื่นเมื่อประกาศเดียวเปิดรับหลายตำแหน่ง (ดู filter.split_it_positions
-    และ main.py) เพื่อตัดตำแหน่งที่ไม่เกี่ยวข้องออกจากโพส และปรับจำนวนอัตราให้ตรงเฉพาะตำแหน่งสายคอมพิวเตอร์
-    quota เป็น None ถ้าหาบรรทัด "จำนวน...อัตรา" ของตำแหน่งนั้นไม่เจอ (เช่น เปลี่ยนรูปแบบข้อความ)
+    หน่วยงานแต่ละที่เขียนชื่อตำแหน่งไม่เหมือนกัน: บางที่ใส่คำว่า "ตำแหน่ง" นำหน้าทุกตำแหน่งย่อย
+    (เช่น "1. ตำแหน่งนักทรัพยากรบุคคล") แต่บางที่พูดคำว่า "ตำแหน่ง" แค่ในหัวข้อใหญ่ครั้งเดียว
+    ("ตำแหน่งที่เปิดรับสมัคร") แล้วแต่ละตำแหน่งย่อยมีแค่เลขนำหน้าเฉยๆ (เช่น "9. นักวิชาการคอมพิวเตอร์"
+    — พบจริงจากประกาศสำนักงานกองทุนหมู่บ้านฯ ทำให้ของเดิมที่หาแค่บรรทัดที่มีคำว่า "ตำแหน่ง" พลาด
+    ตำแหน่งนี้ไปทั้งหมด กลายเป็น position_details ว่าง แล้วงาน IT จริงถูกกรองทิ้งอย่างผิดพลาด)
+
+    สิ่งที่คงที่เสมอในทุกรูปแบบคือ "บรรทัดชื่อตำแหน่งจะตามด้วยบรรทัด 'จำนวน N อัตรา' ทันที" จึงใช้
+    โครงสร้างนี้เป็นตัวระบุหลักแทนการพึ่งคำว่า "ตำแหน่ง" อย่างเดียว
     """
+    lines = [line.strip() for line in description.split("\n")]
     details: list[dict] = []
-    current: dict | None = None
 
-    for line in description.split("\n"):
-        line = line.strip()
-        m = POSITION_LINE_PATTERN.match(line)
-        if m:
-            current = {"name": m.group(1).strip(" :-"), "quota": None}
-            details.append(current)
+    for i, line in enumerate(lines):
+        if not line:
             continue
-        if current is not None and current["quota"] is None:
-            qm = QUOTA_PATTERN.search(line)
-            if qm:
-                current["quota"] = int(qm.group(1).replace(",", ""))
+        next_line = lines[i + 1] if i + 1 < len(lines) else ""
+        quota_match = QUOTA_PATTERN.search(next_line)
+        if not quota_match:
+            continue
+
+        name_match = POSITION_PREFIX_PATTERN.match(line)
+        name = name_match.group(1).strip(" :-") if name_match else line
+        if not name:
+            continue
+        details.append({"name": name, "quota": int(quota_match.group(1).replace(",", ""))})
 
     return details
 
