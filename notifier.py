@@ -24,10 +24,34 @@ POLL_INTERVAL_SECONDS = 5
 DEFAULT_TIMEOUT_SECONDS = 900  # 15 นาที — ถ้าไม่มีใคร react ทัน จะยกเลิกโพสนั้นอัตโนมัติ (ปลอดภัยไว้ก่อน)
 
 
+DISCORD_MAX_RETRIES = 3
+
+
 def _headers() -> dict:
     if not DISCORD_BOT_TOKEN:
         raise RuntimeError("ต้องตั้งค่า environment variable DISCORD_BOT_TOKEN")
     return {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
+
+
+def _discord_request(method: str, url: str, **kwargs) -> requests.Response:
+    """
+    เรียก Discord API พร้อม retry อัตโนมัติเมื่อโดน rate limit (429)
+
+    Discord ส่ง "retry_after" (วินาที) มาใน response body บอกว่าต้องรอนานแค่ไหนก่อนลองใหม่
+    ถ้าไม่ retry ตรงนี้ การเรียกครั้งเดียว (เช่น ติด reaction) ที่โดน 429 จะ raise แล้วทำให้
+    request_confirmation() ทั้งฟังก์ชัน crash และข้าม candidate นั้นไปทั้งที่ยังไม่ได้ถามเลย
+    (เจอจริงใน GitHub Actions log: 429 ตอนติด reaction ❌)
+    """
+    resp = None
+    for attempt in range(1, DISCORD_MAX_RETRIES + 1):
+        resp = requests.request(method, url, headers=_headers(), **kwargs)
+        if resp.status_code == 429 and attempt < DISCORD_MAX_RETRIES:
+            retry_after = resp.json().get("retry_after", 1)
+            time.sleep(float(retry_after) + 0.5)
+            continue
+        break
+    resp.raise_for_status()
+    return resp
 
 
 def _send_message(content: str, image_bytes: bytes) -> str:
@@ -35,36 +59,33 @@ def _send_message(content: str, image_bytes: bytes) -> str:
     if not DISCORD_CHANNEL_ID:
         raise RuntimeError("ต้องตั้งค่า environment variable DISCORD_CHANNEL_ID")
 
-    resp = requests.post(
+    resp = _discord_request(
+        "post",
         f"{API_BASE}/channels/{DISCORD_CHANNEL_ID}/messages",
-        headers=_headers(),
         data={"content": content},
         files={"files[0]": ("infographic.png", image_bytes, "image/png")},
         timeout=30,
     )
-    resp.raise_for_status()
     return resp.json()["id"]
 
 
 def _add_reaction(message_id: str, emoji: str) -> None:
     encoded = quote(emoji)
-    resp = requests.put(
+    _discord_request(
+        "put",
         f"{API_BASE}/channels/{DISCORD_CHANNEL_ID}/messages/{message_id}/reactions/{encoded}/@me",
-        headers=_headers(),
         timeout=15,
     )
-    resp.raise_for_status()
 
 
 def _has_human_reaction(message_id: str, emoji: str) -> bool:
     """เช็คว่า reaction นี้มีคน (ไม่ใช่บอทตัวเอง) กดหรือยัง"""
     encoded = quote(emoji)
-    resp = requests.get(
+    resp = _discord_request(
+        "get",
         f"{API_BASE}/channels/{DISCORD_CHANNEL_ID}/messages/{message_id}/reactions/{encoded}",
-        headers=_headers(),
         timeout=15,
     )
-    resp.raise_for_status()
     users = resp.json()
     return any(not user.get("bot", False) for user in users)
 

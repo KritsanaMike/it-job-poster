@@ -30,13 +30,30 @@ HEADERS = {
 
 REQUEST_DELAY_SECONDS = 1.5  # หน่วงเวลาระหว่างแต่ละ request
 
+FETCH_MAX_RETRIES = 3
+FETCH_RETRY_BACKOFF_SECONDS = 3  # รอ 3, 6 วิ ก่อน retry ครั้งถัดไป (คูณตาม attempt)
+
 
 def fetch_html(url: str) -> str:
-    """ดึง HTML ดิบจาก URL พร้อม error handling"""
-    resp = requests.get(url, headers=HEADERS, timeout=15)
-    resp.raise_for_status()
-    resp.encoding = resp.apparent_encoding  # กัน encoding ภาษาไทยเพี้ยน
-    return resp.text
+    """
+    ดึง HTML ดิบจาก URL พร้อม error handling + retry อัตโนมัติ
+
+    เว็บเป้าหมาย response ช้า/timeout เป็นระยะ (เจอจริงใน GitHub Actions: ReadTimeoutError
+    ทำให้ทั้ง run ล้มตั้งแต่หน้าแรกของหน้า list โดยไม่มีโอกาสเจองาน IT เลยในวันนั้น) retry
+    แบบนี้ช่วยให้รอดจาก timeout ชั่วคราวได้โดยไม่ต้องเสียทั้งวัน
+    """
+    last_error: requests.exceptions.RequestException | None = None
+    for attempt in range(1, FETCH_MAX_RETRIES + 1):
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=15)
+            resp.raise_for_status()
+            resp.encoding = resp.apparent_encoding  # กัน encoding ภาษาไทยเพี้ยน
+            return resp.text
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            if attempt < FETCH_MAX_RETRIES:
+                time.sleep(FETCH_RETRY_BACKOFF_SECONDS * attempt)
+    raise last_error
 
 
 def debug_page(url: str = BASE_URL, save_path: str = "debug_list_page.html"):
